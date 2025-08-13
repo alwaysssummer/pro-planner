@@ -31,12 +31,13 @@ export const testConnection = async () => {
       return false
     }
     
-    const { data, error } = await supabase.from('test').select('*').limit(1)
+    // 실제로 존재하는 students 테이블을 사용하여 연결 테스트
+    const { data, error } = await supabase.from('students').select('*').limit(1)
     if (error) {
       console.log('Supabase 연결 테스트 에러:', error)
       return false
     }
-    console.log('✅ Supabase 연결 성공!')
+    console.log('✅ Supabase 연결 성공! students 테이블 접근 가능')
     return true
   } catch (err) {
     console.error('❌ Supabase 연결 실패:', err)
