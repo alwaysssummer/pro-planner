@@ -61,6 +61,8 @@ import {
 } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
 import { loadStudents, saveStudents, loadTasks } from '../utils/storage';
+import { studentService, assignmentService } from '../services/database';
+import { testConnection } from '../utils/supabase';
 import VocabularyLearning from '../components/VocabularyLearning';
 import VocabularyEvaluation from '../components/VocabularyEvaluation';
 
@@ -197,15 +199,66 @@ const StudentPage: React.FC = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
   useEffect(() => {
-    if (studentId) {
-      const students = loadStudents();
-      const foundStudent = students.find(s => s.id === studentId);
-      if (foundStudent) {
-        setStudent(foundStudent);
-      } else {
-        navigate('/students');
+    const loadStudentData = async () => {
+      if (studentId) {
+        try {
+          // Supabase 연결 테스트
+          await testConnection();
+          
+          // Supabase에서 학생 데이터 로드 시도
+          const supabaseStudent = await studentService.getById(studentId);
+          if (supabaseStudent) {
+            // Supabase에서 과제 배정 정보 로드
+            const assignments = await assignmentService.getByStudentId(studentId);
+            
+            // 과제 배정 정보를 올바른 형식으로 변환
+            const taskAssignments = assignments.map((assignment: any) => ({
+              taskId: assignment.task_id,
+              taskTitle: assignment.task_title,
+              targetUnit: assignment.target_unit,
+              status: assignment.status || 'active',
+              area: 'vocabulary', // 기본값, 실제로는 task 정보에서 가져와야 함
+              learningCount: assignment.learning_count || 0,
+              wrongCount: assignment.wrong_count || 0,
+              evaluationCount: assignment.evaluation_count || 0,
+              weeklySchedule: {}, // 필요시 추가
+              startDate: assignment.created_at,
+              progress: {
+                completed: 0,
+                total: 0
+              }
+            }));
+            
+            const studentWithAssignments = {
+              ...supabaseStudent,
+              taskAssignments
+            };
+            setStudent(studentWithAssignments);
+          } else {
+            // Supabase에 없으면 로컬 스토리지에서 로드 (fallback)
+            const students = loadStudents();
+            const foundStudent = students.find(s => s.id === studentId);
+            if (foundStudent) {
+              setStudent(foundStudent);
+            } else {
+              navigate('/students');
+            }
+          }
+        } catch (error) {
+          console.error('Supabase 로드 실패, 로컬 스토리지 사용:', error);
+          // 에러 발생 시 로컬 스토리지에서 로드
+          const students = loadStudents();
+          const foundStudent = students.find(s => s.id === studentId);
+          if (foundStudent) {
+            setStudent(foundStudent);
+          } else {
+            navigate('/students');
+          }
+        }
       }
-    }
+    };
+    
+    loadStudentData();
   }, [studentId, navigate]);
 
   const getAreaText = (area: string) => {
@@ -986,28 +1039,25 @@ const StudentPage: React.FC = () => {
           >
             <Tab 
               icon={<TodayIcon />} 
-              label="오늘의 과제" 
               iconPosition="start"
               sx={{ 
-                '& .MuiTab-iconWrapper': { mr: 1 },
+                '& .MuiTab-iconWrapper': { mr: 0 },
                 '& .MuiTab-labelIcon': { flexDirection: 'row' }
               }}
             />
             <Tab 
               icon={<ViewModuleIcon />} 
-              label="과제 현황" 
               iconPosition="start"
               sx={{ 
-                '& .MuiTab-iconWrapper': { mr: 1 },
+                '& .MuiTab-iconWrapper': { mr: 0 },
                 '& .MuiTab-labelIcon': { flexDirection: 'row' }
               }}
             />
             <Tab 
               icon={<SettingsIcon />} 
-              label="설정" 
               iconPosition="start"
               sx={{ 
-                '& .MuiTab-iconWrapper': { mr: 1 },
+                '& .MuiTab-iconWrapper': { mr: 0 },
                 '& .MuiTab-labelIcon': { flexDirection: 'row' }
               }}
             />
@@ -1121,71 +1171,82 @@ const StudentPage: React.FC = () => {
                                       }}
                                     >
                                       <Box sx={{ flex: 1 }}>
-                                        <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 0.5 }}>
-                                          {assignment.taskTitle}
-                                          {assignment.targetUnit && (
-                                            <Typography component="span" variant="body2" color="text.secondary" sx={{ ml: 1 }}>
-                                              ({assignment.targetUnit})
-                                            </Typography>
-                                          )}
-                                        </Typography>
-                                        
-                                        {(() => {
-                                          const progress = getProgressStatus(assignment, dayData.date);
-                                          const chips = [];
+                                        <Box sx={{ 
+                                          display: 'flex', 
+                                          alignItems: 'center',
+                                          gap: 1,
+                                          mb: 0.5
+                                        }}>
+                                          <Typography variant="subtitle1" sx={{ 
+                                            fontWeight: 600,
+                                            fontSize: 'clamp(0.8rem, 2.5vw, 1rem)',
+                                            lineHeight: 1.2,
+                                            wordBreak: 'break-word',
+                                            flex: 1,
+                                            minWidth: 0
+                                          }}>
+                                            {assignment.taskTitle}
+                                            {assignment.targetUnit && (
+                                              <Typography component="span" variant="body2" sx={{ 
+                                                fontSize: 'clamp(0.8rem, 2.2vw, 0.95rem)',
+                                                whiteSpace: 'nowrap',
+                                                ml: 0.5,
+                                                fontWeight: 700,
+                                                color: 'black'
+                                              }}>
+                                                {assignment.targetUnit}
+                                              </Typography>
+                                            )}
+                                          </Typography>
                                           
-                                          // 항상 회수 표시 (0회라도)
-                                          chips.push(
-                                            <Chip
-                                              key="learning"
-                                              label={`학습 ${progress.learningCount}회`}
-                                              size="small"
-                                              color="primary"
-                                              variant="outlined"
-                                              sx={{ fontSize: '0.7rem', height: 20 }}
-                                            />
-                                          );
-                                          
-                                          chips.push(
-                                            <Chip
-                                              key="wrong"
-                                              label={`오답 ${progress.wrongAnswerCount}회`}
-                                              size="small"
-                                              color="warning"
-                                              variant="outlined"
-                                              sx={{ fontSize: '0.7rem', height: 20 }}
-                                            />
-                                          );
-                                          
-                                          chips.push(
-                                            <Chip
-                                              key="evaluation"
-                                              label={`평가 ${progress.evaluationCount}회`}
-                                              size="small"
-                                              color="success"
-                                              variant="outlined"
-                                              sx={{ fontSize: '0.7rem', height: 20 }}
-                                            />
-                                          );
-                                          
-                                          return (
-                                            <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }}>
-                                              {chips}
-                                            </Box>
-                                          );
-                                        })()}
+                                          {(() => {
+                                            const progress = getProgressStatus(assignment, dayData.date);
+                                            const chips = [];
+                                            
+                                            // 항상 회수 표시 (0회라도)
+                                            chips.push(
+                                              <Chip
+                                                key="learning"
+                                                label={`${progress.learningCount}회`}
+                                                size="small"
+                                                color="primary"
+                                                variant="outlined"
+                                                sx={{ fontSize: '0.7rem', height: 20 }}
+                                              />
+                                            );
+                                            
+                                            chips.push(
+                                              <Chip
+                                                key="wrong"
+                                                label={`${progress.wrongAnswerCount}회`}
+                                                size="small"
+                                                color="warning"
+                                                variant="outlined"
+                                                sx={{ fontSize: '0.7rem', height: 20 }}
+                                              />
+                                            );
+                                            
+                                            chips.push(
+                                              <Chip
+                                                key="evaluation"
+                                                label={`${progress.evaluationCount}회`}
+                                                size="small"
+                                                color="success"
+                                                variant="outlined"
+                                                sx={{ fontSize: '0.7rem', height: 20 }}
+                                              />
+                                            );
+                                            
+                                            return (
+                                              <Box sx={{ display: 'flex', gap: 0.5, flexShrink: 0 }}>
+                                                {chips}
+                                              </Box>
+                                            );
+                                          })()}
+                                        </Box>
                                       </Box>
                                       
-                                      {/* 클릭하여 학습 시작 */}
-                                      <Box sx={{ 
-                                        display: 'flex', 
-                                        alignItems: 'center',
-                                        color: 'primary.main',
-                                        fontSize: '0.9rem',
-                                        fontWeight: 500
-                                      }}>
-                                        탭하여 학습 시작 →
-                                      </Box>
+
                                     </Box>
                                   ))}
                                 </Box>

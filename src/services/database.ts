@@ -14,7 +14,7 @@ export const taskService = {
   },
 
   // 과제 생성
-  async create(task: { title: string; description: string; area: string; status?: string }) {
+  async create(task: { id?: string; title: string; description: string; area: string; status?: string; google_sheet_url?: string }) {
     const { data, error } = await supabase
       .from('tasks')
       .insert([{ ...task, status: task.status || 'pending' }])
@@ -145,7 +145,7 @@ export const studentService = {
   },
 
   // 학생 생성
-  async create(student: { name: string; level: string }) {
+  async create(student: { id?: string; name: string; grade: string }) {
     const { data, error } = await supabase
       .from('students')
       .insert([student])
@@ -194,6 +194,38 @@ export const studentService = {
 
 // Task Assignment (과제 배정) 관련 함수들
 export const assignmentService = {
+  // 학생별 과제 배정 정보 가져오기
+  async getByStudentId(studentId: string) {
+    const { data, error } = await supabase
+      .from('student_assignments')
+      .select('*')
+      .eq('student_id', studentId);
+    
+    if (error) throw error;
+    return data || [];
+  },
+
+  // 과제 배정 생성
+  async create(assignment: {
+    student_id: string;
+    task_id: string;
+    task_title: string;
+    target_unit?: string;
+    learning_count?: number;
+    wrong_count?: number;
+    evaluation_count?: number;
+    status?: string;
+  }) {
+    const { data, error } = await supabase
+      .from('student_assignments')
+      .insert([assignment])
+      .select()
+      .single();
+    
+    if (error && error.code !== '23505') throw error; // 중복 에러는 무시
+    return data;
+  },
+
   // 과제에 학생 배정
   async assignStudentToTask(taskId: string, studentId: string) {
     const { error } = await supabase

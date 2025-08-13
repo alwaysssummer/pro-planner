@@ -15,6 +15,7 @@ import {
   Menu as MenuIcon,
   Assignment as AssignmentIcon,
   People as PeopleIcon,
+  Dashboard as DashboardIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 
@@ -34,6 +35,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
   };
 
   const menuItems = [
+    { text: '대시보드', icon: <DashboardIcon />, path: '/dashboard' },
     { text: '과제 관리', icon: <AssignmentIcon />, path: '/tasks' },
     { text: '학생 관리', icon: <PeopleIcon />, path: '/students' },
   ];

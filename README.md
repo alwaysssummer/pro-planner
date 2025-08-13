@@ -14,6 +14,7 @@
 - TypeScript
 - Material-UI (MUI)
 - React Router
+- Supabase (데이터베이스)
 
 ## 설치 및 실행
 
@@ -22,12 +23,49 @@
 npm install
 ```
 
-2. 개발 서버 실행:
+2. 환경 변수 설정 (필수):
+프로젝트 루트에 `.env` 파일을 생성하고 다음 내용을 추가하세요:
+
+```bash
+# Supabase 설정 (필수)
+REACT_APP_SUPABASE_URL=https://your-project-id.supabase.co
+REACT_APP_SUPABASE_ANON_KEY=your-anon-key-here
+
+# Gemini AI 설정 (선택)
+REACT_APP_GEMINI_API_KEY=your_gemini_api_key_here
+```
+
+3. 개발 서버 실행:
 ```bash
 npm start
 ```
 
-3. 브라우저에서 `http://localhost:3000`으로 접속
+4. 브라우저에서 `http://localhost:3000`으로 접속
+
+## Supabase 설정
+
+### 1. Supabase 프로젝트 생성
+1. [Supabase](https://supabase.com)에서 새 프로젝트 생성
+2. 프로젝트 URL과 익명 키 복사
+
+### 2. 로컬 환경 설정
+`.env` 파일에 Supabase 정보 추가:
+```bash
+REACT_APP_SUPABASE_URL=https://abcdefghijklmnop.supabase.co
+REACT_APP_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+### 3. 배포 환경 설정 (Vercel)
+1. Vercel 대시보드에서 프로젝트 선택
+2. Settings → Environment Variables
+3. 다음 변수들을 추가:
+   - `REACT_APP_SUPABASE_URL`: Supabase 프로젝트 URL
+   - `REACT_APP_SUPABASE_ANON_KEY`: Supabase 익명 키
+
+### 4. 연결 확인
+브라우저 개발자 도구 콘솔에서 다음 메시지 확인:
+- ✅ Supabase 설정이 유효합니다
+- ✅ Supabase 연결 성공!
 
 ## 프로젝트 구조
 

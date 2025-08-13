@@ -46,7 +46,7 @@ interface LearningResult {
   endTime: Date;
   wordStates?: Array<{
     word: VocabularyWord;
-    status: 'complete' | 'repeat' | 'unknown' | 'forgot';
+    status: 'complete' | 'repeat' | 'forgot';
   }>;
 }
 
@@ -148,7 +148,7 @@ const VocabularyLearning: React.FC<VocabularyLearningProps> = ({
 
 
 
-  const handleWordCheck = (checkType: 'circle' | 'triangle' | 'x') => {
+  const handleWordCheck = (checkType: 'circle' | 'triangle') => {
     if (!session || !currentWord) return;
 
     setFirstChoice(checkType);
@@ -211,10 +211,8 @@ const VocabularyLearning: React.FC<VocabularyLearningProps> = ({
     // 첫 번째 선택을 확정
     if (firstChoice === 'circle') {
       updatedSession.completedWords.push(currentWord.id);
-    } else if (firstChoice === 'triangle') {
+    } else { // triangle (모르는 경우)
       updatedSession.triangleWords.push(currentWord.id);
-    } else {
-      updatedSession.xWords.push(currentWord.id);
     }
 
     console.log('confirmChoice 후 session 상태:', {
@@ -250,14 +248,12 @@ const VocabularyLearning: React.FC<VocabularyLearningProps> = ({
     
     // 현재 회차 결과 저장 (각 단어의 상태 포함)
     const wordStates = session.words.map(word => {
-      let status: 'complete' | 'repeat' | 'unknown' | 'forgot';
+      let status: 'complete' | 'repeat' | 'forgot';
       
       if (session.completedWords.includes(word.id)) {
         status = 'complete'; // 완전히 알고 있어요
       } else if (session.triangleWords.includes(word.id)) {
         status = 'repeat'; // 1번 더 볼래요
-      } else if (session.xWords.includes(word.id)) {
-        status = 'unknown'; // 모르겠어요
       } else {
         status = 'forgot'; // 아 몰랐어요 (체크하지 않은 경우)
       }
@@ -273,7 +269,7 @@ const VocabularyLearning: React.FC<VocabularyLearningProps> = ({
       totalWords: session.words.length,
       completedWords: session.completedWords.length,
       triangleWords: session.triangleWords.length,
-      xWords: session.xWords.length,
+      xWords: 0, // X 로직 제거로 항상 0
       startTime: session.startTime,
       endTime: endTime,
       wordStates: wordStates, // 각 단어의 상태 추가
@@ -306,11 +302,11 @@ const VocabularyLearning: React.FC<VocabularyLearningProps> = ({
         round: session.round + 1,
       };
       
-             setSession(newSession);
-       setCurrentWord(remainingWords[0]);
-       setShowMeaning(false);
-       setHasUserClickedMeaning(false); // 새로운 회차 시작 시 리셋
-       setElapsedTime(0); // 새로운 회차 시작 시 타이머 리셋
+      setSession(newSession);
+      setCurrentWord(remainingWords[0]);
+      setShowMeaning(false);
+      setHasUserClickedMeaning(false); // 새로운 회차 시작 시 리셋
+      setElapsedTime(0); // 새로운 회차 시작 시 타이머 리셋
       
       // 다음 회차 시작 알림 (오답학습인 경우 다른 메시지)
       const isWrongAnswerLearning = assignment?.isWrongAnswerLearning;
@@ -483,199 +479,189 @@ const VocabularyLearning: React.FC<VocabularyLearningProps> = ({
   return (
     <Container maxWidth="md" sx={{ py: 3 }}>
       {/* 헤더 */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-                 <Box sx={{ display: 'flex', alignItems: 'center' }}>
-           <IconButton onClick={onClose} sx={{ mr: 2 }}>
-             <ArrowBackIcon />
-           </IconButton>
-           <Typography variant="h6" sx={{ fontWeight: 600 }}>
-             {assignment?.isWrongAnswerLearning ? '오답학습' : '단어 학습'} - {session.round}회차
-           </Typography>
-           <Typography variant="body2" color="text.secondary" sx={{ ml: 2 }}>
-             {formatTime(elapsedTime)}
-           </Typography>
-         </Box>
-        
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          <IconButton onClick={() => setIsPaused(!isPaused)}>
-            {isPaused ? <PlayArrowIcon /> : <PauseIcon />}
-          </IconButton>
-          <IconButton onClick={onClose}>
-            <StopIcon />
-          </IconButton>
-        </Box>
+      <Box sx={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'center', mb: 3 }}>
+        <IconButton onClick={onClose} sx={{ color: 'text.secondary' }}>
+          <ArrowBackIcon />
+        </IconButton>
       </Box>
 
       {/* 진행률 */}
-      <Box sx={{ mb: 3 }}>
-                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-           <Typography variant="body2">
-             {session.round}회차 진행률: {Math.round(getProgress())}%
-           </Typography>
-           <Typography variant="body2">
-             {session.currentWordIndex + 1} / {session.words.length}
-           </Typography>
-         </Box>
-         
+      <Box sx={{ mb: 1 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+          <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
+            {session.round}회차 진행률: {Math.round(getProgress())}%
+          </Typography>
+          <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
+            {session.currentWordIndex + 1} / {session.words.length}
+          </Typography>
+        </Box>
+        
         <LinearProgress
           variant="determinate"
           value={getProgress()}
-          sx={{ height: 8, borderRadius: 4 }}
+          sx={{ height: 4, borderRadius: 2 }}
         />
       </Box>
 
       {/* 단어 카드 */}
-      <Card sx={{ mb: 6, borderRadius: isMobile ? 2 : 1 }}>
-        <CardContent sx={{ p: isMobile ? 8 : 7, textAlign: 'center' }}>
-          <Typography variant="h3" sx={{ mb: 4, fontWeight: 600 }}>
-            {currentWord.english}
-          </Typography>
-          {currentWord.pronunciation && (
-            <Typography variant="h6" color="text.secondary" sx={{ mb: 6, fontStyle: 'italic' }}>
-              {currentWord.pronunciation}
-            </Typography>
-          )}
-          {!currentWord.pronunciation && (
-            <Box sx={{ mb: 6 }} />
-          )}
-
-          {showMeaning ? (
-            <Box>
-              <Box
-                onClick={handleMistaken}
-                sx={{
-                  width: '100%',
-                  height: 60, // 높이 줄임
-                  border: '2px dashed #ccc',
-                  borderRadius: 2,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  backgroundColor: 'rgba(0,0,0,0.02)',
-                  mt: 6, // 위쪽 여백 증가
-                  mb: 6, // 아래쪽 여백 증가
-                  '&:hover': {
-                    backgroundColor: 'rgba(0,0,0,0.05)',
-                    borderColor: '#999'
-                  }
+      <Card sx={{ mb: 2, borderRadius: isMobile ? 2 : 1 }}>
+        <CardContent sx={{ p: isMobile ? 3 : 2, textAlign: 'center' }}>
+                                 <Box sx={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center', 
+              gap: 1, 
+              mb: 1,
+              width: '100%',
+              minHeight: '40px'
+            }}>
+              <Typography 
+                variant="h4" 
+                sx={{ 
+                  fontWeight: 600,
+                  fontSize: 'clamp(1.5rem, 4vw, 2.125rem)',
+                  lineHeight: 1.2,
+                  wordBreak: 'break-word',
+                  flex: 1,
+                  textAlign: 'center'
                 }}
               >
+                {currentWord.english}
+              </Typography>
+              {currentWord.pronunciation && (
                 <Typography 
-                  variant="h5" 
-                  color="primary" 
+                  variant="body1" 
+                  color="text.secondary" 
                   sx={{ 
-                    fontWeight: 600,
+                    fontStyle: 'italic',
+                    fontSize: 'clamp(0.875rem, 2.5vw, 1.25rem)',
+                    lineHeight: 1.2,
+                    wordBreak: 'break-word',
+                    flex: 1,
                     textAlign: 'center'
                   }}
                 >
-                  {currentWord.korean}
+                  {currentWord.pronunciation}
                 </Typography>
+              )}
+            </Box>
+                                {!currentWord.pronunciation && (
+             <Box sx={{ mb: 0.5 }} />
+           )}
+
+           {showMeaning ? (
+             <Box>
+               <Box
+                 onClick={handleMistaken}
+                 sx={{
+                   width: '100%',
+                   height: 50,
+                   border: '2px dashed #ccc',
+                   borderRadius: 2,
+                   display: 'flex',
+                   alignItems: 'center',
+                   justifyContent: 'center',
+                   cursor: 'pointer',
+                   backgroundColor: 'rgba(0,0,0,0.02)',
+                   mt: 1,
+                   mb: 1,
+                   '&:hover': {
+                     backgroundColor: 'rgba(0,0,0,0.05)',
+                     borderColor: '#999'
+                   }
+                 }}
+               >
+                                 <Typography 
+                   variant="h5" 
+                   color="primary" 
+                   sx={{ 
+                     fontWeight: 600,
+                     textAlign: 'center',
+                     fontSize: 'clamp(1.25rem, 3.5vw, 1.5rem)',
+                     lineHeight: 1.2,
+                     wordBreak: 'break-word',
+                     padding: '0 8px'
+                   }}
+                 >
+                   {currentWord.korean}
+                 </Typography>
               </Box>
             </Box>
           ) : (
-            <Box>
-              <Box sx={{ 
-                display: 'flex', 
-                justifyContent: 'center', 
-                gap: 1,
-                height: 60, // 높이 줄임
-                mt: 6, // 버튼 위쪽 여백 증가
-                mb: 6 // 버튼 아래쪽 여백 추가
-              }}>
-                <Button
-                  variant="contained"
-                  color="success"
-                  size="large"
-                  onClick={() => handleWordCheck('circle')}
-                  sx={{ 
-                    py: 1.5,
-                    px: 2,
-                    borderRadius: 2,
-                    whiteSpace: 'nowrap',
-                    fontSize: isMobile ? '0.9rem' : '1rem',
-                    minWidth: isMobile ? 100 : 120,
-                    height: 60, // 높이 줄임
-                    '&:hover': { transform: 'scale(1.02)' }
-                  }}
-                >
-                  <CheckCircleIcon sx={{ mr: 1, fontSize: isMobile ? 20 : 24 }} />
-                  다시 안볼래
-                </Button>
-                
-                <Button
-                  variant="contained"
-                  size="large"
-                  onClick={() => handleWordCheck('triangle')}
-                  sx={{ 
-                    py: 1.5,
-                    px: 2,
-                    borderRadius: 2,
-                    whiteSpace: 'nowrap',
-                    fontSize: isMobile ? '0.9rem' : '1rem',
-                    minWidth: isMobile ? 100 : 120,
-                    height: 60, // 높이 줄임
-                    backgroundColor: '#FFD700',
-                    color: 'black',
-                    '&:hover': { 
-                      backgroundColor: '#FFC700',
-                      transform: 'scale(1.02)' 
-                    }
-                  }}
-                >
-                  <HelpIcon sx={{ mr: 1, fontSize: isMobile ? 20 : 24 }} />
-                  1번은 더보자
-                </Button>
-                
-                <Button
-                  variant="contained"
-                  color="error"
-                  size="large"
-                  onClick={() => handleWordCheck('x')}
-                  sx={{ 
-                    py: 1.5,
-                    px: 2,
-                    borderRadius: 2,
-                    whiteSpace: 'nowrap',
-                    fontSize: isMobile ? '0.9rem' : '1rem',
-                    minWidth: isMobile ? 100 : 120,
-                    height: 60, // 높이 줄임
-                    '&:hover': { transform: 'scale(1.02)' }
-                  }}
-                >
-                  <CloseIcon sx={{ mr: 1, fontSize: isMobile ? 20 : 24 }} />
-                  완전 모름
-                </Button>
-              </Box>
+                         <Box>
+               <Box sx={{ 
+                 display: 'flex', 
+                 justifyContent: 'center', 
+                 gap: 1,
+                 height: 50,
+                 mt: 1,
+                 mb: 1,
+                 width: '100%'
+               }}>
+                 <Button
+                   variant="contained"
+                   color="success"
+                   size="large"
+                   onClick={() => handleWordCheck('circle')}
+                   sx={{ 
+                     py: 1,
+                     px: 2,
+                     borderRadius: 2,
+                     whiteSpace: 'nowrap',
+                     fontSize: isMobile ? '0.8rem' : '0.9rem',
+                     flex: 1,
+                     height: 50,
+                     '&:hover': { transform: 'scale(1.02)' }
+                   }}
+                 >
+                   <CheckCircleIcon sx={{ fontSize: isMobile ? 16 : 18 }} />
+                 </Button>
+                 
+                 <Button
+                   variant="contained"
+                   size="large"
+                   onClick={() => handleWordCheck('triangle')}
+                   sx={{ 
+                     py: 1,
+                     px: 2,
+                     borderRadius: 2,
+                     whiteSpace: 'nowrap',
+                     fontSize: isMobile ? '0.8rem' : '0.9rem',
+                     flex: 1,
+                     height: 50,
+                     backgroundColor: '#FFD700',
+                     color: 'black',
+                     '&:hover': { 
+                       backgroundColor: '#FFC700',
+                       transform: 'scale(1.02)' 
+                     }
+                   }}
+                 >
+                   <HelpIcon sx={{ mr: 0.5, fontSize: isMobile ? 16 : 18 }} />
+                   한번 더
+                 </Button>
+               </Box>
             </Box>
           )}
         </CardContent>
       </Card>
 
       {/* 학습 통계 */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-around', textAlign: 'center', mt: 3 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-around', textAlign: 'center', mt: 1 }}>
         <Box>
-          <Typography variant="h6" color="success.main" sx={{ fontWeight: 600 }}>
+          <Typography variant="h6" color="success.main" sx={{ fontWeight: 600, fontSize: '1rem' }}>
             {session.completedWords.length}
           </Typography>
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
             완료
           </Typography>
         </Box>
         <Box>
-          <Typography variant="h6" color="warning.main" sx={{ fontWeight: 600 }}>
+          <Typography variant="h6" color="warning.main" sx={{ fontWeight: 600, fontSize: '1rem' }}>
             {session.triangleWords.length}
           </Typography>
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
             재학습
-          </Typography>
-        </Box>
-        <Box>
-          <Typography variant="h6" color="error.main" sx={{ fontWeight: 600 }}>
-            {session.xWords.length}
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            미완료
           </Typography>
         </Box>
       </Box>
